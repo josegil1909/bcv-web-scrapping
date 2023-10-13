@@ -1,7 +1,7 @@
 import result from "./index.js";
 
 const server = Bun.serve({
-  port: 3000,
+  port: 3000 || process.env.PORT,
 
   fetch(req) {
     const url = new URL(req.url);
