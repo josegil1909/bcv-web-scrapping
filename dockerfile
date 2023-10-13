@@ -7,12 +7,12 @@ ENV NODE_VERSION 20.7.0
 
 # Establece el directorio de trabajo en el contenedor
 WORKDIR /usr/src/app
+RUN curl -fsSL https://bun.sh/install | bash 
 
 
 # Copia los archivos de configuración (package.json y pnpm-lock.yaml) al contenedor
 COPY package.json bun.lockb ./
 
-RUN curl -fsSL https://bun.sh/install | bash 
 # Instala las dependencias utilizando PNPM
 RUN bun install
 
