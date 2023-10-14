@@ -9,7 +9,7 @@ ENV NODE_VERSION 20.7.0
 WORKDIR /usr/src/app
 
 # Instala bun
-RUN pnpm install -g bun
+RUN pnpm add -g bun
 
 
 # Copia los archivos de configuración (package.json y bun.lock) al contenedor
