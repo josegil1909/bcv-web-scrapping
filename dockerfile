@@ -9,11 +9,8 @@ ENV NODE_VERSION 20.7.0
 WORKDIR /usr/src/app
 
 # Instala bun
-RUN curl -fsSL https://bun.sh/install | bash 
+RUN pnpm install -g bun
 
-# Agrega la ruta de instalación de bun a las variables de entorno
-ENV BUN_INSTALL="/root/.bun"
-ENV PATH="$BUN_INSTALL/bin:$PATH"
 
 # Copia los archivos de configuración (package.json y bun.lock) al contenedor
 COPY package.json bun.lock ./
