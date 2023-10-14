@@ -14,6 +14,7 @@ RUN curl -fsSL https://bun.sh/install | bash
 COPY package.json bun.lockb ./
 
 # Instala las dependencias utilizando PNPM
+RUN pnpm install -g bun
 RUN bun install
 
 # Copia el resto del código fuente al contenedor
