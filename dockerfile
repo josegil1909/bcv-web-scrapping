@@ -15,7 +15,7 @@ COPY package.json pnpm-lock.yaml ./
 
 
 # Instala las dependencias utilizando PNPM
-RUN pnpm install
+RUN pnpm add
 
 # Copia el resto del código fuente al contenedor
 COPY . .
