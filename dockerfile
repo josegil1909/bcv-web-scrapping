@@ -1,11 +1,13 @@
 FROM oven/bun:canary-alpine
-COPY package.json ./
-COPY bun.lockb ./
-COPY src ./
+WORKDIR /usr/src/app
+
+COPY package.json bun.lockb ./
 
 RUN bun install
 
 # Expone el puerto en el que la aplicación se ejecutará dentro del contenedor
 EXPOSE 3000
+
+CMD ["bun", "start"]
 
 # Define el comando para ejecutar la aplicación
