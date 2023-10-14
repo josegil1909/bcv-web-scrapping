@@ -10,4 +10,3 @@ RUN bun install
 EXPOSE 3000
 
 # Define el comando para ejecutar la aplicación
-CMD [ "bun", "start" ]
