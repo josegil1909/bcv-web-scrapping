@@ -15,8 +15,8 @@ COPY package.json pnpm-lock.yaml ./
 
 
 # Instala las dependencias utilizando PNPM
-RUN pnpm add
-
+RUN pnpm add bun
+RUN bun install 
 # Copia el resto del código fuente al contenedor
 COPY . .
 
@@ -25,4 +25,4 @@ COPY . .
 EXPOSE 3000
 
 # Define el comando para ejecutar la aplicación
-CMD [ "pnpm", "start" ]
+CMD [ "bun", "start" ]
