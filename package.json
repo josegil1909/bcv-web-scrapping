@@ -6,14 +6,13 @@
     "bun-types": "latest"
   },
   "scripts": {
-    "start": "bun app.js"
+    "start": "yarn app.js"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
   "dependencies": {
     "@extractus/article-extractor": "^8.0.3",
-    "bun": "^1.0.6",
     "cheerio": "^1.0.0-rc.12",
     "dom-parser": "^0.1.6",
     "htmlparser2": "^9.0.0",
