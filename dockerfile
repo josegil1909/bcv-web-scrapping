@@ -15,7 +15,7 @@ COPY package.json pnpm-lock.yaml ./
 
 
 # Instala las dependencias utilizando PNPM
-RUN yarn install
+RUN pnpm install
 
 # Copia el resto del código fuente al contenedor
 COPY . .
@@ -25,4 +25,4 @@ COPY . .
 EXPOSE 3000
 
 # Define el comando para ejecutar la aplicación
-CMD [ "yarn", "start" ]
+CMD [ "pnpm", "start" ]
