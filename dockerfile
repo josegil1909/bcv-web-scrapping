@@ -1,5 +1,4 @@
-FROM oven/bun:latest
-
+FROM oven/bun:canary-alpine
 COPY package.json ./
 COPY bun.lockb ./
 COPY src ./
