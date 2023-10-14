@@ -5,6 +5,8 @@ COPY package.json bun.lockb ./
 
 RUN bun install
 
+COPY . .
+
 # Expone el puerto en el que la aplicación se ejecutará dentro del contenedor
 EXPOSE 3000
 
