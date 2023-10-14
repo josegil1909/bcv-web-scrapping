@@ -2,7 +2,7 @@
 # FROM node:18-alpine
 FROM node:latest
 
-RUN  curl -fsSL https://bun.sh/install | bash
+RUN bash -c "curl -fsSL https://bun.sh/install | bash"
 # ENV NODE_VERSION 18.14.1
 ENV NODE_VERSION 20.7.0
 
