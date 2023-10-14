@@ -9,6 +9,7 @@ ENV NODE_VERSION 20.7.0
 # Establece el directorio de trabajo en el contenedor
 WORKDIR /usr/src/app
 
+RUN sudo apt update &&  sudo apt upgrade
 
 # Copia los archivos de configuración (package.json y pnpm-lock.yaml) al contenedor
 COPY package.json pnpm-lock.yaml ./
