@@ -6,7 +6,7 @@
     "bun-types": "latest"
   },
   "scripts": {
-    "start": "yarn app.js"
+    "start": "yarn run app.js"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
