@@ -1,115 +1,183 @@
-import { extract } from "@extractus/article-extractor";
-const cheerio = require("cheerio");
+import { extractFromHtml } from "@extractus/article-extractor";
+import { load } from "cheerio";
 
-const htmlparser2 = require("htmlparser2");
+const BCV_URL = process.env.BCV_URL ?? "https://www.bcv.org.ve/";
+const CACHE_TTL_MS = Number(process.env.BCV_CACHE_TTL_MS ?? 120000);
 
-const input = await extract("https://www.bcv.org.ve/");
-
-const output = input.content;
-
-const table1 = output.indexOf("<tbody>");
-const table2 = output.indexOf("</tbody>");
-
-const txt = output.substring(table1, table2 + 8); // 8s
-// console.log(txt)
-
-let arr = [];
-let banco = "";
-let compra = null;
-let parser = new htmlparser2.Parser({
-  onopentag(name, attribs) {
-    if (name === "td") {
-      let texto = "";
-      this.ontext = function (data) {
-        texto += data;
-      };
-      this.onclosetag = function (tagname) {
-        if (tagname === "td") {
-          texto = texto.trim();
-          if (texto !== "") {
-            if (texto.includes(",")) {
-              texto = texto.replace(",", ".");
-              texto = parseFloat(texto);
-            }
-            if (banco === "") {
-              banco = texto;
-            } else {
-              let obj = {
-                banco: banco,
-                compra: null,
-                venta: null,
-              };
-              if (compra === null) {
-                compra = texto;
-              } else {
-                obj.compra = compra;
-                obj.venta = texto;
-                arr.push(obj);
-                banco = "";
-                compra = null;
-              }
-            }
-          }
-        }
-      };
-    }
-  },
-});
-parser.write(txt);
-parser.end();
-// console.log(arr);
-
-const promedioCompra =
-  arr.reduce((acc, curr) => acc + curr.compra, 0) / arr.length;
-const promedioVenta =
-  arr.reduce((acc, curr) => acc + curr.venta, 0) / arr.length;
-
-const diferencia = promedioVenta - promedioCompra;
-
-// console.log(`Promedio de compra: ${promedioCompra} `);
-// console.log(`Promedio de venta: ${promedioVenta} `);
-// console.log(`Diferencia: ${diferencia}`);
-
-// Crear un arreglo vacío para almacenar los objetos
-let arr2 = [];
-
-const $ = cheerio.load(output);
-
-// Seleccionar todos los elementos 'div' que contienen los datos
-$("div").each(function (i, elem) {
-  // Dentro de cada 'div', seleccionar el elemento 'span' que contiene el código de la moneda
-  let moneda = $(this).find("span").text().trim();
-  // Dentro de cada 'div', seleccionar el elemento 'p' que contiene el elemento 'strong' con el valor de la moneda
-  let valor = $(this).find("p strong").text().trim();
-  // Si el código y el valor no están vacíos, crear un objeto con esas propiedades
-  if (moneda && valor) {
-    valor = valor.replace(",", ".");
-    valor = parseFloat(valor);
-    let obj = {
-      moneda: moneda,
-      valor: valor,
-    };
-    // Añadir el objeto al arreglo
-    arr2.push(obj);
-  }
-});
-
-// Mostrar el resultado en la consola
-
-const filteredArr = arr2.filter((obj, index) => {
-  // Devolver solo los elementos con índice mayor o igual a 2
-  return index >= 2;
-});
-// console.log(filteredArr);
-
-const result = {
-  BCV: filteredArr,
-  Bancos: arr,
-  promedioCompra: promedioCompra,
-  promedioVenta: promedioVenta,
-  Diferencia: diferencia,
+let cache = {
+  data: null,
+  fetchedAt: 0,
 };
 
-export default result;
+const TLS_CERT_ERRORS = new Set([
+  "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+  "UNABLE_TO_GET_ISSUER_CERT_LOCALLY",
+  "UNABLE_TO_GET_ISSUER_CERT",
+  "SELF_SIGNED_CERT_IN_CHAIN",
+  "DEPTH_ZERO_SELF_SIGNED_CERT",
+]);
 
-// console.log(result);
+function parseDecimal(value) {
+  if (!value || typeof value !== "string") {
+    return Number.NaN;
+  }
+
+  const normalized = value
+    .trim()
+    .replace(/\./g, "")
+    .replace(",", ".")
+    .replace(/[^\d.-]/g, "");
+
+  return Number.parseFloat(normalized);
+}
+
+function isTlsCertificateError(error) {
+  return Boolean(error?.code && TLS_CERT_ERRORS.has(error.code));
+}
+
+async function fetchHtmlFromBcv() {
+  try {
+    const strictResponse = await fetch(BCV_URL);
+    return await strictResponse.text();
+  } catch (error) {
+    if (!isTlsCertificateError(error)) {
+      throw error;
+    }
+
+    console.warn(
+      "BCV TLS certificate validation failed. Retrying with rejectUnauthorized=false"
+    );
+
+    const fallbackResponse = await fetch(BCV_URL, {
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
+
+    return await fallbackResponse.text();
+  }
+}
+
+function parseBankRates(content) {
+  const $ = load(content);
+  const bancos = [];
+
+  $("tbody tr").each((_, row) => {
+    const cells = $(row)
+      .find("td")
+      .map((__, cell) => $(cell).text().trim())
+      .get()
+      .filter(Boolean);
+
+    if (cells.length < 3) {
+      return;
+    }
+
+    const compra = parseDecimal(cells[1]);
+    const venta = parseDecimal(cells[2]);
+
+    if (Number.isNaN(compra) || Number.isNaN(venta)) {
+      return;
+    }
+
+    bancos.push({
+      banco: cells[0],
+      compra,
+      venta,
+    });
+  });
+
+  return bancos;
+}
+
+function parseBcvRates(content) {
+  const $ = load(content);
+  const rates = [];
+  const seenCurrencies = new Set();
+
+  $("p > span").each((_, span) => {
+    const moneda = $(span).text().trim();
+    const container = $(span).closest("div");
+    const rawValor = container.find("p strong").first().text().trim();
+
+    if (!/^[A-Z]{3}$/.test(moneda) || !rawValor) {
+      return;
+    }
+
+    if (seenCurrencies.has(moneda)) {
+      return;
+    }
+
+    const valor = parseDecimal(rawValor);
+
+    if (Number.isNaN(valor)) {
+      return;
+    }
+
+    rates.push({
+      moneda,
+      valor,
+    });
+
+    seenCurrencies.add(moneda);
+  });
+
+  return rates;
+}
+
+function buildResult(content) {
+  const bancos = parseBankRates(content);
+  const bcv = parseBcvRates(content);
+
+  const promedioCompra =
+    bancos.length > 0
+      ? bancos.reduce((acc, curr) => acc + curr.compra, 0) / bancos.length
+      : null;
+  const promedioVenta =
+    bancos.length > 0
+      ? bancos.reduce((acc, curr) => acc + curr.venta, 0) / bancos.length
+      : null;
+  const diferencia =
+    promedioCompra !== null && promedioVenta !== null
+      ? promedioVenta - promedioCompra
+      : null;
+
+  return {
+    BCV: bcv,
+    Bancos: bancos,
+    promedioCompra,
+    promedioVenta,
+    Diferencia: diferencia,
+  };
+}
+
+export async function getBcvData({ forceRefresh = false } = {}) {
+  const now = Date.now();
+  const hasFreshCache =
+    !forceRefresh &&
+    cache.data !== null &&
+    Number.isFinite(CACHE_TTL_MS) &&
+    now - cache.fetchedAt <= CACHE_TTL_MS;
+
+  if (hasFreshCache) {
+    return cache.data;
+  }
+
+  const html = await fetchHtmlFromBcv();
+  const article = await extractFromHtml(html, BCV_URL);
+
+  if (!article?.content) {
+    throw new Error("No se pudo extraer contenido útil desde BCV");
+  }
+
+  const data = buildResult(article.content);
+
+  cache = {
+    data,
+    fetchedAt: now,
+  };
+
+  return data;
+}
+
+export default getBcvData;
